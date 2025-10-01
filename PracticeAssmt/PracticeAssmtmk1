@@ -1,0 +1,34 @@
+#FIRST ATTEMPT PRACTICE ASSMT
+#set the directory (USER INPUT REQ)
+path <- "Z:/RCode/PracticeAssmt"
+setwd(path)
+#Load the relevant libraries
+library(haven)
+library(tidyverse)
+library(gt)
+library(modelsummary)
+library(labelled)
+#read the sav file using haven
+bes_df <- read_spss("BES2019_W20_v0.1-3.sav") %>%
+  data.frame()
+#============QUESTION 1==========================
+#we are looking for strong likes BJ or NF in UK and in scotland
+#then look for strong dis sturgeon strong like NF
+Q1_df <- bes_df %>%
+dplyr::select(gor,likeJohnson,likeFarage,likeSturgeon) %>%
+filter(
+    !is.na(likeJohnson), likeJohnson != 9999,
+    !is.na(likeFarage), likeFarage != 9999
+  ) 
+Pct_Likes_Farageson <- Q1_df %>%
+  filter(
+    likeJohnson == 10 | likeFarage == 10
+  ) %>%
+  nrow() / nrow(Q1_df) * 100
+Pct_Likes_Farageson
+Scot_df <- bes_df %>%
+  filter(
+    !is.na(gor), gor == 11,
+    is.na(likeJohnson), likeJohnson != 9999,
+    !is.na(likeFarage), likeFarage != 9999
+  )
