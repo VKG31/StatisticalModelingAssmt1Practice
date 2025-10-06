@@ -1,0 +1,188 @@
+#FIRST ATTEMPT PRACTICE ASSMT
+#set the directory (USER INPUT REQ)
+path <- "Z:/RCode/PracticeAssmt"
+setwd(path)
+#Load the relevant libraries
+library(haven)
+library(tidyverse)
+library(gt)
+library(modelsummary)
+library(labelled)
+library(ggthemes)
+#read the sav file using haven
+bes_df <- read_spss("BES2019_W20_v0.1-3.sav") %>%
+  data.frame()
+#============QUESTION 1==========================
+#we are looking for strong likes BJ or NF in UK and in scotland
+#then look for strong dis sturgeon strong like NF
+Q1_df <- bes_df %>%
+dplyr::select(gor,likeJohnson,likeFarage,likeSturgeon) %>%
+filter(
+    !is.na(likeJohnson), likeJohnson != 9999,
+    !is.na(likeFarage), likeFarage != 9999
+  ) 
+Q1_Cases <- nrow(Q1_df)
+Pct_Likes_Farageson <- Q1_df %>%
+  filter(
+    likeJohnson == 10 | likeFarage == 10
+  ) %>%
+  nrow() / nrow(Q1_df)
+Pct_Likes_Farageson #11.57735
+Scot_df <- bes_df %>%
+  filter(
+    !is.na(gor), gor == 11,
+    !is.na(likeSturgeon), likeSturgeon != 9999,
+    !is.na(likeFarage), likeFarage != 9999
+  )
+Scot_cases <- nrow(Scot_df)
+Scot_Farageon_Pct <- Scot_df %>%
+  filter(
+    likeSturgeon == 0, likeFarage == 10
+  ) %>%
+  nrow() / nrow(Scot_df)
+Q1_gt <- data.frame(
+  Group = c("UK Likes Farage or Johnson ( rating of 10)", 
+  "Scotland dislike Sturgeon (0) and like Farage (10)"
+  ),
+  Percentage = c(Pct_Likes_Farageson, Scot_Farageon_Pct),
+  Valid_Cases = c(Q1_Cases, Scot_cases)
+  )%>%
+  gt() %>%
+  fmt_percent(Percentage,decimals = 4) %>%
+  fmt_number(Valid_Cases, use_seps = TRUE, decimals = 0) %>%
+  tab_header(title = "Q1 Answers", subtitle = "Rounded to 4 Decimal Places")
+
+#============QUESTION 2==========================
+Q2_df <- bes_df %>%
+  dplyr::select( 
+    gor, likeStarmer, ptvCon
+) %>%
+  filter(
+    !is.na(gor), !is.na(ptvCon), !is.na(likeStarmer)
+  )
+Wales_Con <- Q2_df %>%
+  filter(
+    gor == 10, likeStarmer == 0
+  ) %>%
+  summarise(
+  n = n(),
+  median_ptvCon = median(ptvCon)
+  )
+Scot_Con <- Q2_df %>%
+  filter(
+    gor == 11, likeStarmer == 0
+  ) %>%
+  summarise(
+  n = n(),
+  median_ptvCon = median(ptvCon)
+  )
+
+Q2Gt <- data.frame(
+  group = c("Welsh Strongly Dislike Starmer (Rated 0)",
+  "Scottish Strongly Dislike Starmer (Rated 0)"),
+  median_ptvCon = c(Wales_Con$median_ptvCon, Scot_Con$median_ptvCon),
+  cases = c(Wales_Con$n, Scot_Con$n)
+) %>%
+gt()
+
+#============QUESTION 3==========================
+Q3_df <- bes_df %>%
+dplyr::select(
+  p_eurefvote,
+  p_past_vote_2010, p_past_vote_2015, p_past_vote_2017, p_past_vote_2019
+) %>%
+filter(
+  p_past_vote_2010 == 2,
+  p_past_vote_2015 == 2,
+  p_past_vote_2017 == 2,
+  p_past_vote_2019 == 2,
+  !is.na(p_eurefvote), p_eurefvote != 9999 #is this line needed?
+) %>%
+summarise(
+  percentage = mean(p_eurefvote == 0),
+  valid_cases = n()
+)
+#============QUESTION 4==========================
+Q4 <- bes_df %>%
+  dplyr::select(
+    gor, al_scale
+  ) %>%
+  filter(
+    complete.cases(.),
+    gor == 1 | gor == 7 | gor == 11
+  ) %>%
+    ggplot(aes(
+     x = factor(gor, c(1, 7, 11), labels = c("North-East", "London", "Scotland")),
+     y = al_scale)) + 
+    geom_boxplot(fill = "papayawhip") +
+    theme_minimal() +
+      xlab("Government Office Region") +
+      ylab("Al scale rating 0-10 range (10 is authoritarian)") +
+    ggtitle("Auth-Lib Scale Across GORs") 
+#============QUESTION 5==========================
+# i feel like i should use across() here but idk how
+Q5 <- bes_df %>%
+  dplyr::select( 
+    benchCoronaUK, benchCoronaSweden, benchCoronaKorea,
+    benchCoronaGermany, benchCoronaChina, benchCoronaItaly,
+    benchCoronaUSA, likeCon
+  ) %>%
+  filter(
+    complete.cases(.), 
+    if_all(starts_with("bench"), ~ .x != 9999)
+  )
+Q5_all <- Q5 %>% 
+summarize(
+  across(starts_with("bench"), ~mean(.x, na.rm = TRUE), .names = "mean_{.col}")
+)
+#usa is the worst in their view
+Q5_con <- Q5 %>%
+  filter(
+    likeCon == 10
+  ) %>%
+summarize(
+  across(starts_with("bench"), ~mean(.x, na.rm = TRUE), .names = "mean_{.col}")
+)
+#they find korea to be the most successful
+#============QUESTION 6==========================
+Q6 <- bes_df %>%
+  dplyr::select(age, gor, satDemUK)%>%
+  filter(satDemUK != 9999, !is.na(satDemUK))
+Q6_20to30 <- Q6%>%
+  filter(
+    age >= 20, age <= 30
+  ) %>%
+  summarise(
+    pct_dissatisfied = mean(satDemUK == 1, na.rm = TRUE) * 100,
+    n = n()
+  )
+# 22.6288% very dissatisfied, with n = 3531
+Q6_20to30_gor <- Q6 %>%
+filter(
+  age >= 20, age <= 30
+) %>%
+group_by(gor) %>%
+summarize(
+  pct_dissatisfied = mean(satDemUK == 1, na.rm = FALSE) * 100,
+  n = n()
+)
+## highest in scotland but there are relatively few responses
+Q6_60plus <- Q6%>%
+  filter(
+    age > 60
+  ) %>%
+  summarise(
+    pct_dissatisfied = mean(satDemUK == 1, na.rm = TRUE) * 100,
+    n = n()
+  )
+#17.37723% very dissatisfied with n=11118
+Q6_60plus_gor <- Q6 %>%
+group_by(gor) %>%
+filter(
+  age > 60
+) %>%
+summarize(
+  pct_dissatisfied = mean(satDemUK == 1, na.rm = FALSE) * 100,
+  n = n()
+)
+#scotland is the highest region again
